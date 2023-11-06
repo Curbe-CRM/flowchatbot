@@ -6,10 +6,10 @@ const { Pool } = require('pg');
 const APIurl="https://jsonplaceholder.typicode.com/"
 
 const dbConfig = {
-    user: 'postgres',
-    host: 'localhost',
-    database: 'KTM',
-    password: 'P05Tclave',
+    user: '',
+    host: '',
+    database: '',
+    password: '',
     port: 5432
 };
 
@@ -204,7 +204,7 @@ app.get('/', async (req, res) => {
     let aplicacion=new Application()
     // res.status(200).json(aplicacion)
     let compID=consultIDCompany('0912345678')
-    
+
 })
 
 app.listen(app.get('port'),()=>{
