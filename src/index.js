@@ -37,24 +37,43 @@ async function consultIDCompany(number) {
     } catch (error) {
       console.error('Error al consultar la tabla:', error);
     }finally{
-        return company[0]
+        return company[0].emp_id
     }
   }
 
-async function writeClient(object) {
+async function writeClient(object,emp_id) {
     const pool = new Pool(dbConfig);    
     try {
       const connection = await pool.connect();
-      const queryText = 'INSERT INTO usuario (usu_apellido, usu_nombre, usu_celular,usu_correo,usu_identificador,usu_ciudad) VALUES ($1, $2, $3, $4, $5, $6)';
-      const values = [object.lastname,object.name,object.cell,object.mail,object.ID,object.ciudad];
+      const queryText = 'INSERT INTO usuario (usu_apellido, usu_nombre, usu_celular,usu_correo,usu_identificador,usu_ciudad,usu_emp_id) VALUES ($1, $2, $3, $4, $5, $6,$7)';
+      const values = [object.lastname,object.name,object.cell,object.mail,object.ID,object.ciudad,emp_id];
       await connection.query(queryText, values);
       connection.release();
       console.log('Datos insertados correctamente en la tabla');
       connection.end();
+      return ("Guardado con exito")
     } catch (error) {
       console.error('Error al insertar datos en la tabla:', error);
+      return ("Error al guardar Cliente: "+error)
     }
   }
+
+async function writeAplication(object,emp_id) {
+const pool = new Pool(dbConfig);    
+try {
+    const connection = await pool.connect();
+    const queryText = 'INSERT INTO usuario (usu_apellido, usu_nombre, usu_celular,usu_correo,usu_identificador,usu_ciudad,usu_emp_id) VALUES ($1, $2, $3, $4, $5, $6,$7)';
+    const values = [object.lastname,object.name,object.cell,object.mail,object.ID,object.ciudad,emp_id];
+    await connection.query(queryText, values);
+    connection.release();
+    console.log('Datos insertados correctamente en la tabla');
+    connection.end();
+    return ("Guardado con exito")
+} catch (error) {
+    console.error('Error al insertar datos en la tabla:', error);
+    return ("Error al guardar Cliente: "+error)
+}
+}
 
 async function consultBranch(){
     var res= await axios.get(APIurl+"users")
@@ -202,9 +221,9 @@ app.post('/asingAdviser', async (req, res) => {
 app.get('/', async (req, res) => {
     let aplicacion=new Application()
     // res.status(200).json(aplicacion)
-    aplicacion.client.ID=consultIDCompany('0912345678')
-    writeClient(aplicacion.client)
-    
+    let emp_id=await consultIDCompany('0912345678')
+    let result=await writeClient(aplicacion.client,emp_id)
+    res.status(200).json({msg:result})
 })
 
 app.listen(app.get('port'),()=>{
