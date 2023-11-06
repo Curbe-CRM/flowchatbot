@@ -6,10 +6,10 @@ const { Pool } = require('pg');
 const APIurl="https://jsonplaceholder.typicode.com/"
 
 const dbConfig = {
-    user: '',
-    host: '',
-    database: '',
-    password: '',
+    user: 'postgres',
+    host: 'localhost',
+    database: 'KTM',
+    password: 'P05Tclave',
     port: 5432
 };
 
@@ -42,7 +42,7 @@ async function consultIDCompany(number) {
   }
 
 async function writeClient(object) {
-    const pool = new Pool(dbConfig);
+    const pool = new Pool(dbConfig);    
     try {
       const connection = await pool.connect();
       const queryText = 'INSERT INTO usuario (usu_apellido, usu_nombre, usu_celular,usu_correo,usu_identificador,usu_ciudad) VALUES ($1, $2, $3, $4, $5, $6)';
@@ -50,10 +50,9 @@ async function writeClient(object) {
       await connection.query(queryText, values);
       connection.release();
       console.log('Datos insertados correctamente en la tabla');
+      connection.end();
     } catch (error) {
       console.error('Error al insertar datos en la tabla:', error);
-    } finally {
-      connection.end();
     }
   }
 
@@ -203,8 +202,9 @@ app.post('/asingAdviser', async (req, res) => {
 app.get('/', async (req, res) => {
     let aplicacion=new Application()
     // res.status(200).json(aplicacion)
-    let compID=consultIDCompany('0912345678')
-
+    aplicacion.client.ID=consultIDCompany('0912345678')
+    writeClient(aplicacion.client)
+    
 })
 
 app.listen(app.get('port'),()=>{
