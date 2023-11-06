@@ -5,6 +5,9 @@ const axios=require('axios');
 const { Pool } = require('pg');
 const APIurl="https://jsonplaceholder.typicode.com/"
 
+const msjRetorno="Si quieres regresar al menú principal escribe 1, Si quieres que un asesor ​se comunique contigo escribe 2​ "
+const msjConsultor="Perfecto, pronto un asesor se comunicará contigo."
+
 const dbConfig = {
     user: 'postgres',
     host: 'localhost',
@@ -58,11 +61,11 @@ async function writeClient(object,emp_id) {
     }
   }
 
-async function writeAplication(object,emp_id) {
+async function writeAplication(object,cli_id) {
 const pool = new Pool(dbConfig);    
 try {
     const connection = await pool.connect();
-    const queryText = 'INSERT INTO usuario (usu_apellido, usu_nombre, usu_celular,usu_correo,usu_identificador,usu_ciudad,usu_emp_id) VALUES ($1, $2, $3, $4, $5, $6,$7)';
+    const queryText = 'INSERT INTO usuario (apli_sucursal,apli_motocicleta,apli_tipo_repuesto,apli_opcion_compra,apli_cliente,apli_moto_anio,apli_moto_tipo) VALUES ($1, $2, $3, $4, $5, $6,$7)';
     const values = [object.lastname,object.name,object.cell,object.mail,object.ID,object.ciudad,emp_id];
     await connection.query(queryText, values);
     connection.release();
@@ -170,12 +173,20 @@ function navFlow(msg){
         break;
         case 3:
         let regexMenu=/[0-9]+/
-            
+        
         break;
         case 4:
 
         break;
     }
+}
+
+async function infoClient(){
+    //Codigo para obtener info de cliente
+}
+
+async function sendMsgWhtsp(){
+    //Codigo para enviar mensaje whatsapp
 }
 
 app.post('/getWhtspMsg', async (req, res) => {
@@ -221,8 +232,8 @@ app.post('/asingAdviser', async (req, res) => {
 app.get('/', async (req, res) => {
     let aplicacion=new Application()
     // res.status(200).json(aplicacion)
-    let emp_id=await consultIDCompany('0912345678')
-    let result=await writeClient(aplicacion.client,emp_id)
+    // let emp_id=await consultIDCompany('0912345678')
+    // let result=await writeClient(aplicacion.client,emp_id)
     res.status(200).json({msg:result})
 })
 
