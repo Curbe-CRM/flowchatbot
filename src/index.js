@@ -413,7 +413,9 @@ async function navFlow(msg,cell_number,flow_father){
         }else{
             return {msg:"Por favor ingrese sus nombres [nombre apellido]"}
         }
-    }
+    }    
+    return {msg:"En que te podemos ayudar?\n1. Me interesa una moto\n2.Necesito Repuestos\n3.Tiendas y horarios\n4.Accesorios/Power Wear\n5.Asesor en linea"}
+
     switch(indexFlow){        
         case 2:
             if(regexName.test(msg)){
@@ -573,14 +575,6 @@ async function navFlow(msg,cell_number,flow_father){
     }
 }
 
-async function infoClient(){
-    //Codigo para obtener info de cliente
-}
-
-async function sendMsgWhtsp(){
-    //Codigo para enviar mensaje whatsapp
-}
-
 app.post('/getWhtspMsg', async (req, res) => {
     const jsonData = req.body;
     if (Object.keys(jsonData).length > 0) {
@@ -593,27 +587,6 @@ app.post('/getWhtspMsg', async (req, res) => {
     } else {
     res.status(400).json({error: 'Solicitud no contiene JSON válido'});
     }
-})
-
-
-app.post('/msgAdviser', async (req, res) => {
-    const jsonData = req.body;
-    if (Object.keys(jsonData).length > 0) {
-        let branchoff= await consultBranch()
-        res.status(200).json(branchoff)
-    } else {
-    res.status(400).json({error: 'Solicitud no contiene JSON válido'});
-    }
-})
-
-app.get('/', async (req, res) => {
-    // let aplicacion=new Application()
-    // res.status(200).json(aplicacion)
-    // let emp_id=await consultIDCompany('0912345678')
-    // let result=await writeClient(aplicacion.client,emp_id)
-    // usu_lst_nm,usu_city,usu_mail,usu_id,usu_name,usu_cell
-    let result=await consultUserbyCellphone("09999123")
-    res.status(200).json({result:result})
 })
 
 app.listen(app.get('port'),()=>{
