@@ -70,12 +70,13 @@ async function modifyUserbyCell(usu_lst_nm,usu_city,usu_mail,usu_id,usu_name,usu
     }
 }
 
-async function modifyConversationbyID(conv_id,conv_term){
+async function modifyConversationbyID(conv_id,conv_term,conv_princ_menu){
     const client = new Client(dbConfig);
     try {
         await client.connect();
         const uploadFields = {
-            conv_term_acept: conv_term,            
+            conv_term_acept: conv_term,
+            conv_princ_menu_opc:conv_princ_menu
         };
         const sets = [];
         const values= []
@@ -245,7 +246,10 @@ async function consultSpareType(){
     return res
 }
 
-//Modelo de kia
+async function getToken(){
+
+}
+
 
 async function consultCities(){
     var res= await axios.get(APIurl+"leads/ciudades",{headers: {
@@ -391,7 +395,7 @@ async function navFlow(msg,cell_number,flow_father){
     let accpet=conv.status=="Unique"?conv.data.conv_term_acept:false;
     if(!accpet){
         if(lowmsg!="si"){
-            await modifyConversationbyID(conv.data.conv_id,true)
+            await modifyConversationbyID(conv.data.conv_id,true,null)
         }else{
             // Enviar autorizacion
             // return
@@ -414,7 +418,27 @@ async function navFlow(msg,cell_number,flow_father){
             return {msg:"Por favor ingrese sus nombres [nombre apellido]"}
         }
     }    
-    return {msg:"En que te podemos ayudar?\n1. Me interesa una moto\n2.Necesito Repuestos\n3.Tiendas y horarios\n4.Accesorios/Power Wear\n5.Asesor en linea"}
+    if(conv.data.conv_princ_menu_opc==null){
+        return {msg:"En que te podemos ayudar?\n1. Me interesa una moto\n2.Necesito Repuestos\n3.Tiendas y horarios\n4.Accesorios/Power Wear\n5.Asesor en linea"}    
+    }else{
+        if(regexNumber.test(msg) && msg>0 && msg<6){
+            await modifyConversationbyID(conv.data.conv_id,conv.data.conv_term_acept,msg)
+        }
+    }
+    switch(msg){
+        case 1:
+
+        break;
+        case 2:
+        break;
+        case 3:
+        break;
+        case 4:
+        break;
+        case 5:
+        break;
+        
+    }
 
     switch(indexFlow){        
         case 2:
