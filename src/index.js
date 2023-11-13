@@ -534,8 +534,11 @@ async function validTimeBuy(){
     if(conv.data.conv_tiempo_compra==null){
         consult= await consultBuyTimes()        
         let options= consult.map((object)=>object.options)        
-        names=options.map((objeto) => objeto.name)
-        codes=options.map((city) => city.id)        
+        console.log(options)
+        names=options[0].map((objeto) => objeto.name)
+        codes=options[0].map((objeto) => objeto.id)
+        console.log(names)
+        console.log(codes)
         if(regexNumber.test(msg) && msg>0 && msg<=options.length && conv.data.conv_mutable){
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,codes[msg-1],conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
             conv.data.conv_tiempo_compra=codes[msg-1]
