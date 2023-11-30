@@ -5,5 +5,5 @@ WORKDIR $APIHOME
 RUN apt-get update
 RUN apt-get install -y build-essential
 COPY . $APIHOME
-EXPOSE 3000
+EXPOSE 8585
 CMD npm start
