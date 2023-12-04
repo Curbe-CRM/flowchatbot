@@ -26,10 +26,8 @@ const dbConfig = {
     }
 };
 
-async function createUserCellOnly(cell_number,comp_cell_number) {
-    const client = new Client(dbConfig);
-    try {      
-      await client.connect();
+async function createUserCellOnly(cell_number,comp_cell_number) {    
+    try {
       const queryText = 'INSERT INTO usuario (usu_celular,usu_emp_id) VALUES ($1,$2) RETURNING usu_id';
       const values = [cell_number,comp_cell_number];
       let response=await client.query(queryText, values);      
@@ -41,10 +39,8 @@ async function createUserCellOnly(cell_number,comp_cell_number) {
     }
 }
 
-async function modifyUserbyCell(objClient){    
-    const client = new Client(dbConfig);
-    try {
-        await client.connect();        
+async function modifyUserbyCell(objClient){
+    try {        
         const sets = [];
         const values= []
         for (const field in objClient) {
@@ -71,9 +67,7 @@ async function modifyUserbyCell(objClient){
 }
 
 async function modifyConversationbyID(objConv){
-    const client = new Client(dbConfig);
-    try {
-        await client.connect();        
+    try {        
         const sets = [];
         const values= []
         for (const field in objConv) {
@@ -97,10 +91,8 @@ async function modifyConversationbyID(objConv){
     }
 }
 
-async function createConversation(user_id) {
-    const client = new Client(dbConfig);  
+async function createConversation(user_id) {    
     try {
-      await client.connect();
       const now= new Date()
       const queryText = 'INSERT INTO conversacion (conv_usuario,conv_fecha) VALUES ($1,$2) RETURNING *';
       const values = [user_id,now];
@@ -114,9 +106,7 @@ async function createConversation(user_id) {
 }
 
 async function finishConversation(conv_id){
-    const client = new Client(dbConfig);
-    try {
-        await client.connect();
+    try {        
         const uploadFields = {            
             conv_finalizada:true
         };
@@ -143,10 +133,8 @@ async function finishConversation(conv_id){
     }
 }
 
-async function confirmConversation(conv_id){
-    const client = new Client(dbConfig);
-    try {
-        await client.connect();
+async function confirmConversation(conv_id){    
+    try {        
         const uploadFields = {            
             conv_confirm:true
         };
@@ -174,9 +162,7 @@ async function confirmConversation(conv_id){
 }
 
 async function consultCompanybynumber(number){
-    const client = new Client(dbConfig);
-    try {
-        await client.connect();      
+    try {        
         const queryText = 'SELECT * FROM empresa WHERE emp_celular=$1';
         const values = [number];
         let response=await client.query(queryText, values);
@@ -197,10 +183,8 @@ async function consultCompanybynumber(number){
 
 }
 
-async function consultUserbyCellphone(number,emp_id){    
-    const client = new Client(dbConfig);
+async function consultUserbyCellphone(number,emp_id){
     try {
-        await client.connect();      
         const queryText = 'SELECT * FROM usuario WHERE usu_celular=$1 and usu_emp_id=$2';
         const values = [number,emp_id];
         let response=await client.query(queryText, values);
@@ -222,9 +206,7 @@ async function consultUserbyCellphone(number,emp_id){
 }
 
 async function consultConvesationbyUser(user){
-    const client = new Client(dbConfig);
-    try {
-        await client.connect();      
+    try {        
         const queryText = 'SELECT * FROM conversacion WHERE conv_usuario=$1 and conv_finalizada=false';
         const values = [user];
         let response=await client.query(queryText, values);
@@ -245,9 +227,7 @@ async function consultConvesationbyUser(user){
 }
 
 async function consultFlowbyComp(comp){
-    const client = new Client(dbConfig);
     try {
-        await client.connect();      
         const queryText = 'SELECT * FROM flujo WHERE flu_emp_id=$1';
         const values = [comp];
         let response=await client.query(queryText, values);
@@ -267,10 +247,8 @@ async function consultFlowbyComp(comp){
       }
 }
 
-async function consultInstancesbyIndex(flow_id,index){    
-    const client = new Client(dbConfig);
+async function consultInstancesbyIndex(flow_id,index){
     try {
-        await client.connect();      
         const queryText = 'SELECT * FROM instancia INNER JOIN verificador_instancia ON inst_verificador=ver_inst_id INNER JOIN mensajes ON inst_mensaje=msj_id WHERE inst_indice=$1 and inst_flujo_id=$2';
         const values = [index,flow_id];
         let response=await client.query(queryText, values);
@@ -281,9 +259,9 @@ async function consultInstancesbyIndex(flow_id,index){
                 return []
             }else{
                 return response.rows
-            }            
+            }
         }
-      } catch (error) {        
+      } catch (error) {
         return {status:"Error",data:error}
       } finally {
           client.end();
@@ -298,12 +276,27 @@ app.use(morgan('dev'));
 app.use(express.urlencoded({extended:false}));
 app.use(express.json());
 
+let client
 let token,consult,names,codes,result,user,conv,msg,lowmsg,instances,objUser,objConv,emp
 let listOpc=""
 let msgAnt=""
 let msgError="❌ Opcion Incorrecta, intentalo nuevamente 😄"
 
-function listOptions(array){    
+async function connectDB(){
+    if(client==undefined){
+        client= new Client(dbConfig);
+        try {
+            await client.connect();
+        } catch (error) {
+            console.log(error)
+            return {status:"Error",data:error}
+        }finally{
+            console.log(client)
+        }
+    }        
+}
+
+function listOptions(array){
     let list="\n"
     for(let i=0;i<array.length;i++){
         list+=(i+1).toString()
@@ -343,8 +336,7 @@ async function consultCities(){
 }
 
 async function consultAgencies(city){
-    console.log("ciudad")
-    console.log(city)
+    
     var res= await axios.get(APIurl+"leads/concesionarios?cod_ciudad="+city,{headers: {
         Authorization: "Bearer ".concat(token)
     }})
@@ -405,7 +397,7 @@ async function saveNewLead(){
         plataforma: "whatsapp bot",        
         cod_tipo_documento:user.data.usu_opcion_identificador==true?0:1,
         identificacion:user.data.usu_identificacion,
-        nombres:user.data.usu_nombre+user.data.usu_apellido,
+        nombres:user.data.usu_nombre+" "+user.data.usu_apellido,
         telefono:conv.data.conv_celular,
         email:user.data.usu_correo,        
         acepta:user.data.usu_term_acept==true?"SI":"NO",

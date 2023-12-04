@@ -395,7 +395,7 @@ async function saveNewLead(user,conv,token){
         plataforma: "whatsapp bot",        
         cod_tipo_documento:user.data.usu_opcion_identificador==true?1:2,
         identificacion:user.data.usu_identificador,
-        nombres:user.data.apellido==null?user.data.usu_nombre:user.data.usu_nombre+user.data.usu_apellido,
+        nombres:user.data.usu_apellido==null?user.data.usu_nombre:user.data.usu_nombre+" "+user.data.usu_apellido,
         telefono:user.data.usu_celular,
         email:user.data.usu_correo,
         acepta:user.data.usu_term_acept==true?"SI":"NO",
