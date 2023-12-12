@@ -2,8 +2,34 @@ const express = require('express');
 const morgan=require('morgan');
 const axios=require('axios');
 var cors = require('cors');
-const { Client } = require('pg');
+const { Client,Pool } = require('pg');
 const APIurl=" https://ktm.curbe.com.ec/api/"
+const Reconnect = require('reconnect-core');
+const fs = require('fs')
+const cheerio = require('cheerio');
+const winston = require("winston");
+const logger = winston.createLogger({    
+    level: "info",    
+    format: winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.printf(
+        (info) => `${info.timestamp} ${info.level}: ${info.message}`
+      )
+    ),    
+    transports: [
+      new winston.transports.Console(),
+      new winston.transports.File({ filename: "src/logs/app.log" }),
+    ],
+  });
+
+const app = express();
+app.set('port', process.env.PORT || 8585);
+app.set('json spaces', 2)
+app.use(morgan('dev'));
+app.use(express.urlencoded({extended:false}));
+app.use(express.json());
+
+let client
 
 /*const dbConfig = {
     user: process.env["User"],
@@ -34,12 +60,10 @@ async function createUserCellOnly(cell_number,comp_cell_number) {
       return response.rows[0].usu_id
     } catch (error) {
       return {status:"Error",data:error}
-    } finally {
-        client.end();
     }
 }
 
-async function modifyUserbyCell(objClient){
+async function modifyUserbyID(objClient){
     try {        
         const sets = [];
         const values= []
@@ -52,12 +76,12 @@ async function modifyUserbyCell(objClient){
         const query = `
             UPDATE usuario 
             SET ${sets.join(', ')}
-            WHERE usu_celular ='`+objClient.usu_celular.toString()+`'
+            WHERE usu_id ='`+objClient.usu_id.toString()+`'
             RETURNING *;
         `;        
         const result = await client.query(query,values);
         if (result.rowCount>0) {            
-            return result.rows[0]
+            return [result.rows[0]]
         } else {            
             return []
         }
@@ -100,8 +124,6 @@ async function createConversation(user_id) {
       return response.rows[0]
     } catch (error) {      
       return {status:"Error",data:error}
-    } finally {
-      client.end();
     }
 }
 
@@ -161,8 +183,8 @@ async function confirmConversation(conv_id){
     }
 }
 
-async function consultCompanybynumber(number){
-    try {        
+async function consultCompanybynumber(number){    
+    try {  
         const queryText = 'SELECT * FROM empresa WHERE emp_celular=$1';
         const values = [number];
         let response=await client.query(queryText, values);
@@ -177,8 +199,6 @@ async function consultCompanybynumber(number){
         }        
       } catch (error) {        
         return {status:"Error",data:error}
-      } finally {
-          client.end();
       }
 
 }
@@ -189,7 +209,7 @@ async function consultUserbyCellphone(number,emp_id){
         const values = [number,emp_id];
         let response=await client.query(queryText, values);
         if(response.rowCount==1){
-            return response.rows[0]
+            return [response.rows[0]]
         }else{
             if(response.rowCount==0){
                 return []
@@ -199,17 +219,15 @@ async function consultUserbyCellphone(number,emp_id){
         }        
       } catch (error) {        
         return {status:"Error",data:error}
-      } finally {
-          client.end();
       }
 
 }
 
-async function consultConvesationbyUser(user){
+async function consultConvesationbyUser(userID){    
     try {        
         const queryText = 'SELECT * FROM conversacion WHERE conv_usuario=$1 and conv_finalizada=false';
-        const values = [user];
-        let response=await client.query(queryText, values);
+        const values = [userID];
+        let response=await client.query(queryText, values);        
         if(response.rowCount==1){
             return response.rows[0]
         }else{
@@ -221,8 +239,6 @@ async function consultConvesationbyUser(user){
         }
       } catch (error) {        
         return {status:"Error",data:error}
-      } finally {
-          client.end();
       }
 }
 
@@ -242,8 +258,6 @@ async function consultFlowbyComp(comp){
         }
       } catch (error) {        
         return {status:"Error",data:error}
-      } finally {
-          client.end();
       }
 }
 
@@ -263,37 +277,36 @@ async function consultInstancesbyIndex(flow_id,index){
         }
       } catch (error) {
         return {status:"Error",data:error}
-      } finally {
-          client.end();
       }
 }
-
-
-const app = express();
-app.set('port', process.env.PORT || 8585);
-app.set('json spaces', 2)
-app.use(morgan('dev'));
-app.use(express.urlencoded({extended:false}));
-app.use(express.json());
-
-let client
-let token,consult,names,codes,result,user,conv,msg,lowmsg,instances,objUser,objConv,emp
-let listOpc=""
-let msgAnt=""
-let msgError="❌ Opcion Incorrecta, intentalo nuevamente 😄"
 
 async function connectDB(){
     if(client==undefined){
         client= new Client(dbConfig);
         try {
-            await client.connect();
+            await client.connect();            
+            logger.log("info", "Conexion creada DB");
+            return {status:"OK",data:"Creada la conexion a BD"}
         } catch (error) {
-            console.log(error)
+            logger.log("info","error en conexion db")
+            logger.log("error", error);
             return {status:"Error",data:error}
-        }finally{
-            console.log(client)
         }
-    }        
+    }
+    client.on('end', async (err, cli) => {
+            logger.log("error",'DATABASE CONNECTION ENDED. RETRYING IN 2 SECONDS...');
+            setTimeout(connect_stuff, 2000);
+            client= new Client(dbConfig);
+            try {
+                await client.connect();
+                return {status:"OK",data:"Creada la conexion a BD"}
+            } catch (error) {
+                logger.log("info","error en reconexion db")
+                logger.log("error", error);
+                return {status:"Error",data:error}
+            }
+    })
+    return {status:"OK",data:"Creada la conexion a BD"}   
 }
 
 function listOptions(array){
@@ -307,14 +320,15 @@ function listOptions(array){
     return list
 }
 
-async function getToken(){
+async function getToken(){    
     var res= await axios.post(APIurl+"auth/login",{
         "lgn_userName": "api_fbt_ktmec",
         "lgn_password": "11botKtm2023",
         "lgn_dominio": "desarrolloktm"
     })
-    .then(function (response) {
+    .then(function (response) {        
         return response.data.token
+        
     })
     .catch(function(error){
         return "Error al logearse "+error
@@ -322,9 +336,9 @@ async function getToken(){
     return res
 }
 
-async function consultCities(){
+async function consultCities(token_auth){
     var res= await axios.get(APIurl+"leads/ciudades",{headers: {
-        Authorization: "Bearer ".concat(token)
+        Authorization: "Bearer ".concat(token_auth)
     }})
     .then(function (response) {
         return response.data
@@ -335,10 +349,9 @@ async function consultCities(){
     return res
 }
 
-async function consultAgencies(city){
-    
+async function consultAgencies(city,token_auth){    
     var res= await axios.get(APIurl+"leads/concesionarios?cod_ciudad="+city,{headers: {
-        Authorization: "Bearer ".concat(token)
+        Authorization: "Bearer ".concat(token_auth)
     }})
     .then(function (response) {
         return response.data
@@ -349,9 +362,9 @@ async function consultAgencies(city){
     return res
 }
 
-async function consultTypeVehicule(city){
-    var res= await axios.get(APIurl+"leads/tipos_veh",{headers: {
-        Authorization: "Bearer ".concat(token)
+async function consultTypeVehicule(token_auth){
+    var res= await axios.get(APIurl+"shared/getCategoriesByBrand/700",{headers: {
+        Authorization: "Bearer ".concat(token_auth)
     }})
     .then(function (response) {
         return response.data
@@ -362,9 +375,9 @@ async function consultTypeVehicule(city){
     return res
 }
 
-async function consultModels(vehicule){    
-    var res= await axios.get(APIurl+"leads/modelo_tipo_vehiculo?tipoVehiculo="+vehicule,{headers: {
-        Authorization: "Bearer ".concat(token)
+async function consultModels(vehicule,token_auth){    
+    var res= await axios.get(APIurl+"shared/getModelsByCategory/"+vehicule,{headers: {
+        Authorization: "Bearer ".concat(token_auth)
     }})
     .then(function (response) {
         return response.data
@@ -375,9 +388,9 @@ async function consultModels(vehicule){
     return res
 }
 
-async function consultBuyTimes(){
+async function consultBuyTimes(token_auth){
     var res= await axios.get(APIurl+"leads/surveys",{headers: {
-        Authorization: "Bearer ".concat(token)
+        Authorization: "Bearer ".concat(token_auth)
     }})
     .then(function (response) {
         return response.data
@@ -427,38 +440,61 @@ async function saveNewLead(){
     return res
 }
 
-async function navInstance(cell_number){
-    if(user.length==0){        
+async function navInstance(cell_number,comp_cell_number,lowmsg,emp,user,conv){
+    let msgAnt=""    
+    let consult,names,codes,listOpc,token,years
+    if(user.length==0){       
         user=await createUserCellOnly(cell_number,emp.emp_id)        
         conv=await createConversation(user)
     }else{
-        conv =await consultConvesationbyUser(user.usu_id)        
+        if(conv==undefined){
+            conv =await consultConvesationbyUser(user[0].usu_id)           
+        }
     }    
     let flow= await consultFlowbyComp(emp.emp_id)
-    instances= await consultInstancesbyIndex(flow.flu_id,conv.conv_indice_flujo)
-    console.log(instances)
+    instances= await consultInstancesbyIndex(flow.flu_id,conv.conv_indice_flujo)    
         if(instances.length>0){        
-            for(let i=0;i<instances.length;i++){                    
+            for(let i=0;i<instances.length;i++){                
                 let conditions=JSON.parse(instances[i].inst_condicion)                
                 if(instances[i].inst_consulta!=null){
-                    token= await getToken()                    
+                    token = await getToken()                    
                     switch(instances[i].inst_consulta){
-                        case "Ciudad":
-                            consult = await consultCities()                            
+                        case "Ciudad":                            
+                            consult = await consultCities(token)
                             names=consult.map((objeto) => objeto.nombre)
                             codes=consult.map((city) => city.codigo)
-                            listOpc=listOptions(names)+(consult.length+1).toString()+". Otro\n"
-                            conditions.push(consult.length+1)
+                            listOpc=listOptions(names)                            
                         break;
                         case "Sucursal":
-                            consult=await consultAgencies(user.usu_ciudad)
-                            console.log(consult)
+                            consult=await consultAgencies(user[0].usu_ciudad,token)                            
                             if(consult.length==0){
                                 lowmsg=conditions                                
                             }else{
                                 names=consult.map((objeto) => objeto.vitrina)
                                 codes=consult.map((city) => city.emp_codigo)
+                                listOpc=listOptions(names)
                             }
+                        break;
+                        case "Categoria":
+                            consult=await consultTypeVehicule(token)                            
+                            if(consult.length==0){
+                                lowmsg=conditions                                
+                            }else{
+                                names=consult.map((objeto) => objeto.cve_nombre)
+                                codes=consult.map((city) => city.cat_vehiculo)
+                                listOpc=listOptions(names)
+                            }
+                        break;
+                        case "Producto":
+                            consult=await consultModels(conv.conv_tipo_moto,token)                            
+                            if(consult.length==0){
+                                lowmsg=conditions
+                            }else{
+                                names=consult.map((objeto) => objeto.nombre_modelo+" "+objeto.anio_modelo)
+                                codes=consult.map((city) => city.cod_modelo)
+                                years=consult.map((city) => city.anio_modelo)
+                                listOpc=listOptions(names)                                
+                            }                            
                         break;
                     }
                     try{
@@ -478,80 +514,74 @@ async function navInstance(cell_number){
                     try{
                         nummsg=Number(lowmsg)
                     }catch{
-                        console.log("no se puede convertir a valor")
+                        console.log("No se puede convertir a valor")
                     }                    
                     if(regex.test(lowmsg) && (conditions.includes(lowmsg) || conditions.includes(nummsg))){
-                        if(instances[i].inst_consulta!=null){
-                            switch(instances[i].inst_consulta){
-                                case "Horarios":
-                                    let listH="Estamos ubicados en: \n"
-                                    let cities = await consultCities()
-                                    for (let i=0;i<cities.length;i++){
-                                        listH+="\t 📍"+cities[i].nombre+"\n"
-                                        let branches= await consultAgencies(cities[i].codigo)                
-                                        for(let j=0;j<branches.length;j++){
-                                            listH+="\t\t"+branches[j].direccion+"\n"
-                                        }
-                                    }
-                                    listH+="🕒 Nuestro horario de atención es:\nLunes a Viernes de 9:00 am hasta las 7:00 pm\nSábados de 9:30 am a 1:00 pm\n¡Te esperamos! 🔥" 
-                                    conv.conv_mutable=false
-                                    conv.conv_indice_flujo=instances.data[i].inst_hijo
-                                    await modifyConversationbyID(conv)
-                                    await modifyUserbyCell(user)
-                                    await confirmConversation(conv.conv_id)
-                                    result=await navInstance(cell_number)
-                                    return {status:"Msg",data:listH+result}
-                                break;
-                                case "Sucursal":
-                                    msgAnt=instances[i].msj_contenido
-                                break;
-                            }
-                        }
                         conv.conv_mutable=false                        
                         conv.conv_indice_flujo=instances[i].inst_hijo
                         let mod_user=JSON.parse(instances[i].inst_usu_mod)
                         if(mod_user.length>0){
                             for(let j=0;j<mod_user.length;j++){
-                                if(msg=="si"){                                
-                                    user[mod_user[j]]=true
+                                if(lowmsg=="si"){                                
+                                    user[0][mod_user[j]]=true
                                 }else{
-                                    if(msg=="no"){                                    
-                                        user[mod_user[j]]=false                                    
+                                    if(lowmsg=="no"){                                    
+                                        user[0][mod_user[j]]=false                                    
                                     }else{                                    
-                                        user[mod_user[j]]=msg                                    
+                                        if(codes!=undefined){
+                                            user[0][mod_user[j]]=codes[Number(lowmsg)-1]
+                                        }else{
+                                            user[0][mod_user[j]]=lowmsg
+                                        }
                                     }
                                 }
-                            }
-                            user=await modifyUserbyCell(user)
+                            }                            
+                            user=await modifyUserbyID(user[0])
                         }
-                        
                         let mod_conv=JSON.parse(instances[i].inst_conv_mod)
                         if(mod_conv.length>0){
                             for(let k=0;k<mod_conv.length;k++){
-                                if(msg=="si"){
+                                if(lowmsg=="si"){
                                     conv[mod_conv[k]]=true
                                 }else{
-                                    if(msg=="no"){
+                                    if(lowmsg=="no"){
                                         conv[mod_conv[k]]=false
                                     }else{
-                                        conv[mod_conv[k]]=msg
+                                        if(codes!=undefined){
+                                            conv[mod_conv[k]]=codes[Number(lowmsg)-1]
+                                        }else{
+                                            conv[mod_conv[k]]=lowmsg
+                                        }
                                     }
                                 }
                             }
-                            conv=await modifyConversationbyID(conv)
-                        }                        
-                        return await navInstance(cell_number)
+                        }
+                        conv=await modifyConversationbyID(conv)
+                        
+                        if(instances[i].inst_consulta!=null){
+                            switch(instances[i].inst_consulta){                               
+                                case "Sucursal":
+                                    msgAnt=instances[i].msj_contenido                                    
+                                break;
+                                case "Categoria":                                    
+                                    lowmsg=conv.conv_tipo_moto
+                                break;
+                            }
+                        }
+
+                        let returnObj=await navInstance(cell_number,comp_cell_number,lowmsg,emp,user,conv)                        
+                        return returnObj
                     }else{                        
                         if(i==(instances.length-1)){
                             conv.conv_mutable=true
-                            await modifyConversationbyID(conv)
-                            return {status:"Msg",data:msgError}
+                            conv=await modifyConversationbyID(conv)
+                            return {status:"Msg",data:"ingreso Invalido"}
                         }
                     }
-                }else{
+                }else{                    
                     conv.conv_mutable=true
                     conv=await modifyConversationbyID(conv)
-                    return {status:"Msg",data:msgAnt+"\n"+instances[i].msj_contenido+"\n"+listOpc}
+                    return {status:"Msg",data:msgAnt+"\n"+instances[i].msj_contenido+"\n"+listOpc}                                        
                 }
             }
         }else{
@@ -559,68 +589,92 @@ async function navInstance(cell_number){
         }
 }
 
-async function navFlow(cell_number,comp_cell_number){    
-    emp = await consultCompanybynumber(comp_cell_number)    
-    lowmsg=msg.toString().toLowerCase().trim()    
+async function navFlow(cell_number,comp_cell_number,msg){    
+    let user,lowmsg,emp
+    let DBresult=await connectDB()
+    if(DBresult.status=="Error"){
+        return {status:"Error",data:DBresult.data}
+    }
+    emp = await consultCompanybynumber(comp_cell_number)
+    lowmsg=msg.toString().toLowerCase().trim()
     user=await consultUserbyCellphone(cell_number,emp.emp_id)    
-    return await navInstance(cell_number)
-    
-    /*
-    let confirm="Por favor confirma tus datos:\n"
-    confirm+=user.data.usu_opcion_identificador?"Tipo de Identificacion: Cedula identidad\n":"Tipo de Identificacion: Cedula de Extranjeria o Pasaporte\n"
-    confirm+="Identificacion: "+user.data.usu_identificador+"\n"
-    confirm+="Nombre: "+user.data.usu_nombre+"\n"
-    confirm+="Apellido: "+user.data.usu_apellido+"\n"
-    confirm+="Email: "+user.data.usu_correo+"\n"            
-    
-    if(user.data.usu_ciudad!=null){
-        consult= await consultCities()
-        let nameCity=consult.filter((object)=>object.codigo==user.data.usu_ciudad)            
-        nameCity=user.data.usu_ciudad==0?conv.data.conv_ciudad:nameCity[0].nombre
-        confirm+="Ciudad: "+nameCity+"\n"
-    }
-    
-    if(conv.data.conv_tipo_moto!=null){
-        consult= await consultTypeVehicule()
-        let nameType=consult.filter((object)=>object.veh_codigo==conv.data.conv_tipo_moto)
-        confirm+="Tipo de vehiculo: "+nameType[0].veh_nombre+"\n"
-    }                
-    
-    if(conv.data.conv_moto!=null){
-        consult= await consultModels(conv.data.conv_tipo_moto)
-        let nameModel=consult.filter((object)=>object.cod_modelo==conv.data.conv_moto)
-        confirm+="Modelo: "+nameModel[0].nombre+"\n"
-    }
+    let result= await navInstance(cell_number,comp_cell_number,lowmsg,emp,user,undefined)
+    return result
+}
 
-    if(conv.data.conv_tiempo_compra!=null){
-        consult= await consultBuyTimes()
-        let optionName=consult.map((object)=>object.options)
-        let nombre =optionName[0].filter((object)=>object.id==conv.data.conv_tiempo_compra)            
-        confirm+="Opcion de compra: "+nombre[0].name+"\n"
+async function sendMail(user,conv,emp,token){    
+    let content = fs.readFileSync('src/templates/template.html', 'utf-8');
+    let $ = cheerio.load(content);
+    let changes,asunto
+    switch(Number(conv.data.conv_princ_menu_opc)){
+        case 2:
+            asunto='Nueva Solicitud de Repuestos '+emp.data.emp_nombre
+            changes = {'#empresa':emp.data.emp_nombre,
+            '#SOLICITUD':asunto,
+            '#INFO':'Repuestos',
+            '#CANAL':'CANAL',
+            '#MEDIO':'CHAT BOT',
+            '#NOMBRES':user.data.usu_apellido==null?"<b>Nombre: </b>"+user.data.usu_nombre:"<b>Nombre y Apellido: </b>"+user.data.usu_nombre+" "+user.data.usu_apellido,
+            '#CELULAR':"<b>Celular: </b>"+conv.data.conv_celular,
+            '#CIUDAD':"<b>Ciudad: </b>"+conv.data.conv_ciudad,
+            '#SUCURSAL':"<b>Sucursal: </b>"+conv.data.conv_sucursal,
+            '#CEDULA':"<b>Cedula: </b>"+user.data.usu_identificador,
+            '#CORREO':"<b>Correo: </b>"+user.data.usu_correo,
+            '#TIPO_REPUESTO':"<b>Tipo de Repuesto requerido: </b>"+conv.data.conv_tipo_repuesto,
+            '#PRODUCTO':"<b>Moto del repuesto: </b>"+conv.data.conv_moto,
+            '#ANIO':"<b>Año del repuesto: </b>"+conv.data.conv_moto_anio
+            }
+        break;
+        case 4:
+            asunto='Nueva Solicitud de Accesorios '+emp.data.emp_nombre
+            changes = {'#empresa':emp.data.emp_nombre,
+            '#SOLICITUD':asunto,
+            '#INFO':'Acesorios',
+            '#CANAL':'CANAL',
+            '#MEDIO':'CHAT BOT',
+            '#NOMBRES':user.data.usu_apellido==null?"<b>Nombre: </b>"+user.data.usu_nombre:"<b>Nombre y Apellido: </b>"+user.data.usu_nombre+" "+user.data.usu_apellido,
+            '#CELULAR':"<b>Celular: </b>"+conv.data.conv_celular,
+            '#CIUDAD':"<b>Ciudad: </b>"+conv.data.conv_ciudad,
+            '#SUCURSAL':"<b>Sucursal que desea ser atendido: </b>"+conv.data.conv_sucursal
+        }
+        break;
+    }    
+    for (let selector in changes) {        
+        let newContent = changes[selector];
+        $(selector).html(newContent);
     }
-
-    confirm+="Son correctos Si o No"
-    return {status:"Msg",data:confirm}
-    */
-                           
-            
-       
-    
+    let html=$.html()
+    console.log(emp)
+    let obj={
+        bodyHtml: html,
+        asunto: asunto,
+        to: [
+          {
+            email: emp.data.emp_correo,
+            name: "Post Venta "+emp.data.emp_nombre
+          }
+        ]
+      }
+    console.log(obj)
+    await APIsendmail(token,obj)
 }
 
 app.use(cors());
 
 app.post('/getWhtspMsg', async (req, res) => {
-    const jsonData = req.body;
-    if (Object.keys(jsonData).length > 0) {
-        let message=jsonData.message
-        let number=jsonData.number
-        let compNumber=jsonData.compNumber
-        msg=message
-        let result= await navFlow(number,compNumber)        
-        res.status(200).json(result)
-    } else {
-    res.status(400).json({error: 'Solicitud no contiene JSON válido'});
+    try{
+        const jsonData = req.body;
+        if (Object.keys(jsonData).length > 0) {
+            let message=jsonData.message
+            let number=jsonData.number
+            let compNumber=jsonData.compNumber        
+            let result= await navFlow(number,compNumber,message)        
+            res.status(200).json(result)
+        } else {
+            res.status(500).json({error: 'Solicitud no contiene JSON válido'});
+        }
+    }catch(error){
+        res.status(500).json({error: error});
     }
 })
 
