@@ -5,7 +5,7 @@ var cors = require('cors');
 const fs = require('fs')
 const { Client } = require('pg');
 const cheerio = require('cheerio');
-const APIurl=" https://desarrolloktm.curbe.com.ec/api/"
+let APIurl
 const winston = require("winston");
 const logger = winston.createLogger({    
     level: "info",    
@@ -61,8 +61,7 @@ async function connectDB(){
         }
     }
     client.on('end', async (err, cli) => {
-            logger.log("error",'DATABASE CONNECTION ENDED. RETRYING IN 2 SECONDS...');
-            setTimeout(connect_stuff, 2000);
+            logger.log("error",'DATABASE CONNECTION ENDED. RETRYING...');            
             client= new Client(dbConfig);
             try {
                 await client.connect();
@@ -368,7 +367,7 @@ async function getToken(){
     var res= await axios.post(APIurl+"auth/login",{
         "lgn_userName": "api_fbt_ktmec",
         "lgn_password": "11botKtm2023",
-        "lgn_dominio": "desarrolloktm"
+        "lgn_dominio": "racingmoto"
     })
     .then(function (response) {
         return response.data.token
@@ -479,13 +478,13 @@ async function saveNewLead(user,conv,token){
     let send={
         origen:"fcb",
         plataforma: "whatsapp bot",        
-        cod_tipo_documento:user.data.usu_opcion_identificador==true?1:2,
+        cod_tipo_documento:user.data.usu_opcion_identificador==true?"Cédula de Identidad":"Cédula de Extranjeria o Pasaporte",
         identificacion:user.data.usu_identificador,
         nombres:user.data.usu_apellido==null?user.data.usu_nombre:user.data.usu_nombre+" "+user.data.usu_apellido,
         telefono:user.data.usu_celular,
         email:user.data.usu_correo,
         acepta:user.data.usu_term_acept==true?"SI":"NO",
-        cod_ciudad:user.data.usu_ciudad,        
+        cod_ciudad:user.data.usu_ciudad,
         cod_categoria_lead:conv.data.conv_tipo_moto,
         cod_modelo:conv.data.conv_moto,
         estado_civil:user.data.usu_estado_civil,
@@ -540,12 +539,12 @@ async function validOptID(user,conv,msg){
             }else{
                 await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=true
-                return {status:"Msg",data:"❌ Opcion Incorrecta, intentalo nuevamente 😄"}
+                return {status:"Msg",data:"❌ Opción Incorrecta, inténtalo nuevamente 😄"}
             }
         }else{
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
             conv.data.conv_mutable=true
-            return {status:"Msg",data:"Por favor ingresa el tipo de identificacion\n1. Cedula de ciudadania\n2. Cedula de extranjeria o Pasaporte"}
+            return {status:"Msg",data:"Por favor ingresa el tipo de identificación\n1. Cédula de ciudadania\n2. Cédula de extranjeria o Pasaporte"}
         }        
     }
 }
@@ -558,9 +557,10 @@ async function validID(user,conv,msg){
         ?
         await modifyUserbyCell(user.data.usu_apellido,user.data.usu_ciudad,user.data.usu_correo,msg,user.data.usu_nombre,user.data.usu_opcion_identificador,user.data.usu_term_acept,user.data.usu_estado_civil,user.data.usu_celular,user.data.usu_emp_id)
         :
-        {status:"Msg",data:"Por favor ingrese su Documento de identificacion, con el formato adecuado"}
+        {status:"Msg",data:"Por favor ingrese su Número de Identificación , con el formato adecuado "}
+        confirm.data+=user.data.usu_opcion_identificador?"0102030405":"e123456 o aaa123456"
         if(confirm.status=="OK"){
-            await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)                
+            await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)                
             conv.data.conv_mutable=false
             user.data.usu_identificador=msg
         }
@@ -576,19 +576,19 @@ async function validCellphone(conv,msg){
     if(conv.data.conv_celular==null){
         if(conv.data.conv_mutable){
             if(regexCellphone.test(msg)){
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,msg)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,msg)
                 conv.data.conv_celular=msg
                 conv.data.conv_mutable=false
                 return {status:"OK",data:""}
             }else{
                 await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=true
-                return {status:"Msg",data:"❌ Número de celular inválido, intentalo nuevamente 😄"}
+                return {status:"Msg",data:"❌ Número de celular inválido, inténtalo nuevamente 😄"}
             }
         }else{
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
             conv.data.conv_mutable=true
-            return {status:"Msg",data:"Por favor ingresa el numero de celular para ser contactado formato:0990000000"}
+            return {status:"Msg",data:"Por favor ingresa el número de celular para ser contactado formato:0990000000"}
         }        
     }
 }
@@ -598,14 +598,14 @@ async function validMail(user,conv,msg){
         if(conv.data.conv_mutable){
             if(regexMail.test(msg)){
                 await modifyUserbyCell(user.data.usu_apellido,user.data.usu_ciudad,msg,user.data.usu_identificador,user.data.usu_nombre,user.data.usu_opcion_identificador,user.data.usu_term_acept,user.data.usu_estado_civil,user.data.usu_celular,user.data.usu_emp_id)
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 user.data.usu_correo=msg
                 conv.data.conv_mutable=false
                 return {status:"OK",data:""}
             }else{
                 await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=true
-                return {status:"Msg",data:"❌ Correo Invalido, intentalo nuevamente 😄"}
+                return {status:"Msg",data:"❌ Correo Inválido, inténtalo nuevamente 😄"}
             }
         }else{
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
@@ -623,14 +623,14 @@ async function validCity(user,conv,msg,token){
         if(conv.data.conv_mutable){
             if(regexNumbers.test(msg) && msg>0 && msg<=consult.length){
                 await modifyUserbyCell(user.data.usu_apellido,codes[msg-1],user.data.usu_correo,user.data.usu_identificador,user.data.usu_nombre,user.data.usu_opcion_identificador,user.data.usu_term_acept,user.data.usu_estado_civil,user.data.usu_celular,user.data.usu_emp_id)
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 user.data.usu_ciudad=codes[msg-1]            
                 conv.data.conv_mutable=false
                 return {status:"OK",data:""}
             }else{
                 await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=true                
-                return {status:"Msg",data:"❌ Opcion Incorrecta, intentalo nuevamente 😄"}
+                return {status:"Msg",data:"❌ Opción Incorrecta, inténtalo nuevamente 😄"}
             }
         }else{
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)                
@@ -644,14 +644,14 @@ async function validUsercity(conv,msg){
     if(conv.data.conv_ciudad==null){
         if(conv.data.conv_mutable){
             if(regexOnlyName.test(msg)){
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,msg,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,msg,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_ciudad=msg
                 conv.data.conv_mutable=false
                 return {status:"OK",data:""}
             }else{
                 await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=true                
-                return {status:"Msg",data:"❌ Opcion Incorrecta, intentalo nuevamente 😄"}
+                return {status:"Msg",data:"❌ Opción Incorrecta, inténtalo nuevamente 😄"}
             }
         }else{
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
@@ -672,14 +672,14 @@ async function validBranch(user,conv,msg,token){
         }
         if(conv.data.conv_mutable){
             if(regexNumbers.test(msg) && msg>0 && msg<=consult.length){
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,codes[msg-1],conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,codes[msg-1],conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_sucursal=codes[msg-1]
                 conv.data.conv_mutable=false
                 return {status:"OK",data:"Sucursal modificada"}
             }else{
                 await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=true                
-                return {status:"Msg",data:"❌ Opcion Incorrecta, intentalo nuevamente 😄"}
+                return {status:"Msg",data:"❌ Opción Incorrecta, inténtalo nuevamente 😄"}
             }
         }else{
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
@@ -697,14 +697,14 @@ async function validType(conv,msg,token){
         let codes=consult.map((city) => city.cat_vehiculo)
         if(conv.data.conv_mutable){
             if(regexNumber.test(msg) && msg>0 && msg<=consult.length ){
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,codes[msg-1],conv.data.conv_ciudad,false,conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,codes[msg-1],conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_tipo_moto=codes[msg-1]
                 conv.data.conv_mutable=false
                 return {status:"OK",data:"Modificado el tipo de moto"}
             }else{
                 await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=true                
-                return {status:"Msg",data:"❌ Opcion Incorrecta, intentalo nuevamente 😄"}
+                return {status:"Msg",data:"❌ Opción Incorrecta, inténtalo nuevamente 😄"}
             }
         }else{
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
@@ -726,7 +726,7 @@ async function validProduct(conv,msg,token,emp){
         }
         if(conv.data.conv_mutable){
             if(regexNumber.test(msg) && msg>0 && msg<=consult.length){
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,codes[msg-1],conv.data.conv_tipo_repuesto,years[msg-1],conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,codes[msg-1],conv.data.conv_tipo_repuesto,years[msg-1],conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_moto=codes[msg-1]
                 conv.data.conv_moto_anio=years[msg-1]
                 conv.data.conv_mutable=false
@@ -734,7 +734,7 @@ async function validProduct(conv,msg,token,emp){
             }else{
                 await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=true
-                return {status:"Msg",data:"❌ Opcion Incorrecta, intentalo nuevamente 😄"}
+                return {status:"Msg",data:"❌ Opción Incorrecta, inténtalo nuevamente 😄"}
             }
         }else{
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
@@ -806,20 +806,20 @@ async function validTimeBuy(conv,msg,token){
         let codes=options[0].map((objeto) => objeto.id)        
         if(conv.data.conv_mutable){
             if(regexNumber.test(msg) && msg>0 && msg<=codes.length){
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,codes[msg-1],conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,codes[msg-1],conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_tiempo_compra=codes[msg-1]
                 conv.data.conv_mutable=false
                 return {status:"OK",data:""}
             }else{
                 if(msg==options.length+1){
-                    await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,0,conv.data.conv_celular)
+                    await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,0,conv.data.conv_metodo_pago,conv.data.conv_celular)
                     conv.data.conv_tiempo_compra=0
                     conv.data.conv_mutable=false
                     return {status:"OK",data:""}
                 }else{
                     await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                     conv.data.conv_mutable=true                
-                    return {status:"Msg",data:"❌ Opcion Incorrecta, intentalo nuevamente 😄"}
+                    return {status:"Msg",data:"❌ Opción Incorrecta, inténtalo nuevamente 😄"}
                 }
             }
         }else{
@@ -834,7 +834,7 @@ async function validTypeRefill(conv,msg){
     if(conv.data.conv_tipo_repuesto==null){
         if(conv.data.conv_mutable){
             if(regexOnlyName.test(msg)){
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,msg,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,msg,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_tipo_repuesto=msg
                 conv.data.conv_mutable=false
                 return {status:"OK",data:""}
@@ -855,7 +855,7 @@ async function validYearProduct(conv,msg){
     if(conv.data.conv_moto_anio==null){
         if(conv.data.conv_mutable){
             if(regexAnio.test(msg)){
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,msg,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,msg,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_moto_anio=msg
                 conv.data.conv_mutable=false
                 return {status:"OK",data:""}
@@ -876,7 +876,7 @@ async function validStatus(user,conv,msg){
     if(user.data.usu_estado_civil==null){
         if(conv.data.conv_mutable){
             if(regexNumber.test(msg) && msg>0 && msg<5){
-                switch(msg){
+                switch(Number(msg)){
                     case 1:
                         msg="Soltero"
                     break;
@@ -891,13 +891,13 @@ async function validStatus(user,conv,msg){
                     break;
                 }
                 await modifyUserbyCell(user.data.usu_apellido,user.data.usu_ciudad,user.data.usu_correo,user.data.usu_identificador,user.data.usu_nombre,user.data.usu_opcion_identificador,user.data.usu_term_acept,msg,user.data.usu_celular,user.data.usu_emp_id)
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)                                
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)                                
                 conv.data.conv_mutable=false
                 return {status:"OK",data:""}
             }else{
                 await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=true
-                return {status:"Msg",data:"❌ Opcion Incorrecta, intentalo nuevamente 😄"}
+                return {status:"Msg",data:"❌ Opción Incorrecta, inténtalo nuevamente 😄"}
             }
         }else{
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
@@ -911,14 +911,14 @@ async function validBranchConv(conv,msg){
     if(conv.data.conv_sucursal==null){                
         if(conv.data.conv_mutable){
             if(regexOnlyName.test(msg)){            
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,msg,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,msg,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_sucursal=msg
                 conv.data.conv_mutable=false
                 return {status:"OK",data:"Sucursal modificada"}
             }else{
                 await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=true                
-                return {status:"Msg",data:"❌ Opcion Incorrecta, intentalo nuevamente 😄"}
+                return {status:"Msg",data:"❌ Opción Incorrecta, inténtalo nuevamente 😄"}
             }
         }else{
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
@@ -934,14 +934,14 @@ async function validProductConv(conv,msg){
     if(conv.data.conv_moto==null){                        
         if(conv.data.conv_mutable){                      
             if(regexOnlyName.test(msg)){            
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,msg,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,msg,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_moto=msg
                 conv.data.conv_mutable=false
                 return {status:"OK",data:"Moto modificada"}
             }else{
                 await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=true                
-                return {status:"Msg",data:"❌ Opcion Incorrecta, intentalo nuevamente 😄"}
+                return {status:"Msg",data:"❌ Opción Incorrecta, inténtalo nuevamente 😄"}
             }
         }else{
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
@@ -957,14 +957,15 @@ async function validBuymethod(conv,msg){
     if(conv.data.conv_metodo_pago==null){                        
         if(conv.data.conv_mutable){
             if(regexNumber.test(msg) && msg>0 && msg<5){            
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,msg,conv.data.conv_celular)
-                conv.data.conv_metodo_pago=msg
+                codes=["Contado","Crédito","Moto por parte de pago y crédito","Moto por parte de pago y la diferencia al contado"]
+                conv.data.conv_metodo_pago=codes[msg-1]
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,codes[msg-1],conv.data.conv_celular)
                 conv.data.conv_mutable=false
                 return {status:"OK",data:"Metodo pago modificada"}
             }else{
                 await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=true                
-                return {status:"Msg",data:"❌ Opcion Incorrecta, intentalo nuevamente 😄"}
+                return {status:"Msg",data:"❌ Opción Incorrecta, inténtalo nuevamente 😄"}
             }
         }else{
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
@@ -996,7 +997,8 @@ async function sendMail(user,conv,emp,token){
             '#CORREO':"<b>Correo: </b>"+user.data.usu_correo,
             '#TIPO_REPUESTO':"<b>Tipo de Repuesto requerido: </b>"+conv.data.conv_tipo_repuesto,
             '#PRODUCTO':"<b>Moto del repuesto: </b>"+conv.data.conv_moto,
-            '#ANIO':"<b>Año del repuesto: </b>"+conv.data.conv_moto_anio
+            '#ANIO':"<b>Año del repuesto: </b>"+conv.data.conv_moto_anio,
+            '#firmaempresa':emp.data.emp_nombre+" Ecuador"
             }
         break;
         case 4:
@@ -1009,11 +1011,12 @@ async function sendMail(user,conv,emp,token){
             '#NOMBRES':user.data.usu_apellido==null?"<b>Nombre: </b>"+user.data.usu_nombre:"<b>Nombre y Apellido: </b>"+user.data.usu_nombre+" "+user.data.usu_apellido,
             '#CELULAR':"<b>Celular: </b>"+conv.data.conv_celular,
             '#CIUDAD':"<b>Ciudad: </b>"+conv.data.conv_ciudad,
-            '#SUCURSAL':"<b>Sucursal que desea ser atendido: </b>"+conv.data.conv_sucursal
+            '#SUCURSAL':"<b>Sucursal que desea ser atendido: </b>"+conv.data.conv_sucursal,
+            '#firmaempresa':emp.data.emp_nombre+" Ecuador"
         }
         break;
     }    
-    for (let selector in changes) {        
+    for (let selector in changes) {
         let newContent = changes[selector];
         $(selector).html(newContent);
     }
@@ -1033,6 +1036,10 @@ async function sendMail(user,conv,emp,token){
     await APIsendmail(token,obj)
 }
 
+async function sendTechFile(){
+    return {status:"200",message:"Ok",data:[{code:1}]}
+}
+
 async function navFlow(cell_number,comp_cell_number,msg){ 
     let DBresult=await connectDB()    
     if(DBresult.status=="Error"){
@@ -1041,6 +1048,7 @@ async function navFlow(cell_number,comp_cell_number,msg){
     let menu,sel_menu,token,result,user,conv,lowmsg
     let listH=""
     let emp = await consultCompanybynumber(comp_cell_number)
+    APIurl=emp.data.emp_url_consulta
     token= await getToken()
     lowmsg=msg.toString().toLowerCase().trim()
     user=await consultUserbyCellphone(cell_number,emp.data.emp_id)
@@ -1057,7 +1065,7 @@ async function navFlow(cell_number,comp_cell_number,msg){
         if(lowmsg=="si"){
             await modifyUserbyCell(user.data.usu_apellido,user.data.usu_ciudad,user.data.usu_correo,user.data.usu_identificador,user.data.usu_nombre,user.data.usu_opcion_identificador,true,user.data.usu_estado_civil,user.data.usu_celular,user.data.usu_emp_id)
         }else{
-            return {status:"200",message:"Ok",data:[{code:1,text:"Permitenos la autorizacion, sino no podremos comunicarnos.Escribe si para aceptar"}]}
+            return {status:"200",message:"Ok",data:[{code:1,text:"Permitenos la autorización, sino no podremos comunicarnos.Escribe si para aceptar"}]}
             //return {status:"Msg",data:"Permitenos la autorizacion, sino no podremos comunicarnos.Escribe si para aceptar "}
         }
     }    
@@ -1079,14 +1087,14 @@ async function navFlow(cell_number,comp_cell_number,msg){
         }
     }    
     if(conv.data.conv_princ_menu_opc==null){
-        if(regexNumber.test(msg) && msg>0 && msg<6){
-            sel_menu=await modifyConversationbyID(conv.data.conv_id,msg,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)            
+        if(regexNumber.test(msg) && msg>0 && msg<5){
+            sel_menu=await modifyConversationbyID(conv.data.conv_id,msg,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)            
             menu=sel_menu.status=="OK"?Number(msg):null
             conv.data.conv_princ_menu_opc=sel_menu.status=="OK"?msg:null
         }else{            
-            await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
-            return {status:"200",message:"Ok",data:[{code:1,text:"En que te podemos ayudar?\n1. Me interesa una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Accesorios/Power Wear\n 5. Asesor en linea\n Ingrese una opcion de las anteriores"}]}
-            // return {status:"Msg",data:"En que te podemos ayudar?\n1. Me interesa una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Accesorios/Power Wear\n 5. Asesor en linea\n Ingrese una opcion de las anteriores"}    
+            await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
+            return {status:"200",message:"Ok",data:[{code:1,text:"En que te podemos ayudar?\n1. Me interesa una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Accesorios/Power Wear\nIngrese una Opción de las anteriores"}]}
+            // return {status:"Msg",data:"En que te podemos ayudar?\n1. Me interesa una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Accesorios/Power Wear\n 5. Asesor en linea\n Ingrese una Opción de las anteriores"}    
         }
     }
     if(menu==undefined){
@@ -1149,7 +1157,7 @@ async function navFlow(cell_number,comp_cell_number,msg){
                     // return {status:confirm.status,data:confirm.data}
                     return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
             }else{
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,null,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,null,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=false
                 conv.data.conv_tipo_moto=null
                 msg=""
@@ -1221,86 +1229,86 @@ async function navFlow(cell_number,comp_cell_number,msg){
             //conv.data.conv_mutable=true
             listH+="El catalogo esta disponible en: https://drive.google.com/file/d/12dYoeExF5s2NraHYZ2iplbI9ddgqYT28/view?usp=sharing \n"
         break;
-        case 5:
-            confirm = await validUsercity(conv,msg)            
-            if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
-                return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
-                // return {status:confirm.status,data:confirm.data}
-            confirm= await validOptID(user,conv,msg)
-            if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
-                //return {status:confirm.status,data:confirm.data}                
-                return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
-            confirm =await validID(user,conv,msg)
-            if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
-                //return {status:confirm.status,data:confirm.data}
-                return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
-            confirm = await validStatus(user,conv,msg)
-            if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
-                //return {status:confirm.status,data:confirm.data}                
-                return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
-            confirm =await validCellphone(conv,msg)
-            if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
-                //return {status:confirm.status,data:confirm.data}                
-                return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
-            confirm =await validMail(user,conv,msg)
-            if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
-                //return {status:confirm.status,data:confirm.data}                
-                return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
-            confirm = await validCity(user,conv,msg,token)
-            if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
-                //return {status:confirm.status,data:confirm.data}                
-                return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
-            confirm = await validBranch(user,conv,msg,token)            
-            if(confirm.data.length>0){
-                if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
-                    //return {status:confirm.status,data:confirm.data}
-                    return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
-            }else{
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
-                await modifyUserbyCell(user.data.usu_apellido,null,user.data.usu_correo,user.data.usu_identificador,user.data.usu_nombre,user.data.usu_opcion_identificador,user.data.usu_term_acept,user.data.usu_estado_civil,user.data.usu_celular,user.data.usu_emp_id)
-                conv.data.conv_mutable=false
-                user.data.usu_ciudad=null
-                msg=""
-                confirm = await validCity(user,conv,msg,token)
-                if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
-                    return {status:"200",message:"Ok",data:[{code:1,text:"Lo sentimos no hay agencias en la ciudad seleccionada"},{code:2,text:confirm.data}]}
-                    // return {status:confirm.status,data:"Lo sentimos no hay agencias en la ciudad seleccionada "+confirm.data}
-            }               
-            confirm = await validType(conv,msg,token)
-            if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
-                //return {status:confirm.status,data:confirm.data}
-                return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
-            confirm = await validProduct(conv,msg,token,emp)
-            if(confirm.data.length>0){
-                if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
-                    //return {status:confirm.status,data:confirm.data}
-                    return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
-            }else{
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,null,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_celular)
-                conv.data.conv_mutable=false
-                conv.data.conv_tipo_moto=null
-                msg=""
-                confirm = await validType(conv,msg,token)
-                if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
-                    //return {status:confirm.status,data:"Lo sentimos no tenemos en existencia motos en este tipo "+confirm.data}                
-                    return {status:"200",message:"Ok",data:[{code:1,text:"Lo sentimos no tenemos en existencia motos en este tipo"},{code:2,text:confirm.data}]}
-            }
-            confirm = await validTimeBuy(conv,msg,token)            
-            if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
-                //return {status:confirm.status,data:confirm.data}            
-                return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
-        break;
+        // case 5:
+        //     confirm = await validUsercity(conv,msg)            
+        //     if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
+        //         return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
+        //         // return {status:confirm.status,data:confirm.data}
+        //     confirm= await validOptID(user,conv,msg)
+        //     if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
+        //         //return {status:confirm.status,data:confirm.data}                
+        //         return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
+        //     confirm =await validID(user,conv,msg)
+        //     if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
+        //         //return {status:confirm.status,data:confirm.data}
+        //         return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
+        //     confirm = await validStatus(user,conv,msg)
+        //     if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
+        //         //return {status:confirm.status,data:confirm.data}                
+        //         return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
+        //     confirm =await validCellphone(conv,msg)
+        //     if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
+        //         //return {status:confirm.status,data:confirm.data}                
+        //         return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
+        //     confirm =await validMail(user,conv,msg)
+        //     if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
+        //         //return {status:confirm.status,data:confirm.data}                
+        //         return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
+        //     confirm = await validCity(user,conv,msg,token)
+        //     if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
+        //         //return {status:confirm.status,data:confirm.data}                
+        //         return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
+        //     confirm = await validBranch(user,conv,msg,token)            
+        //     if(confirm.data.length>0){
+        //         if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
+        //             //return {status:confirm.status,data:confirm.data}
+        //             return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
+        //     }else{
+        //         await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
+        //         await modifyUserbyCell(user.data.usu_apellido,null,user.data.usu_correo,user.data.usu_identificador,user.data.usu_nombre,user.data.usu_opcion_identificador,user.data.usu_term_acept,user.data.usu_estado_civil,user.data.usu_celular,user.data.usu_emp_id)
+        //         conv.data.conv_mutable=false
+        //         user.data.usu_ciudad=null
+        //         msg=""
+        //         confirm = await validCity(user,conv,msg,token)
+        //         if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
+        //             return {status:"200",message:"Ok",data:[{code:1,text:"Lo sentimos no hay agencias en la ciudad seleccionada"},{code:2,text:confirm.data}]}
+        //             // return {status:confirm.status,data:"Lo sentimos no hay agencias en la ciudad seleccionada "+confirm.data}
+        //     }               
+        //     confirm = await validType(conv,msg,token)
+        //     if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
+        //         //return {status:confirm.status,data:confirm.data}
+        //         return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
+        //     confirm = await validProduct(conv,msg,token,emp)
+        //     if(confirm.data.length>0){
+        //         if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
+        //             //return {status:confirm.status,data:confirm.data}
+        //             return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
+        //     }else{
+        //         await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,null,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
+        //         conv.data.conv_mutable=false
+        //         conv.data.conv_tipo_moto=null
+        //         msg=""
+        //         confirm = await validType(conv,msg,token)
+        //         if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
+        //             //return {status:confirm.status,data:"Lo sentimos no tenemos en existencia motos en este tipo "+confirm.data}                
+        //             return {status:"200",message:"Ok",data:[{code:1,text:"Lo sentimos no tenemos en existencia motos en este tipo"},{code:2,text:confirm.data}]}
+        //     }
+        //     confirm = await validTimeBuy(conv,msg,token)            
+        //     if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
+        //         //return {status:confirm.status,data:confirm.data}            
+        //         return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
+        // break;
         default:
-            await modifyConversationbyID(conv.data.conv_id,msg,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_celular)
-            return {status:"200",message:"Ok",data:[{code:1,text:"opcion no valida"}]}
-            //return {status:"Msg",data:"Opcion no valida"}
+            await modifyConversationbyID(conv.data.conv_id,msg,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
+            return {status:"200",message:"Ok",data:[{code:1,text:"❌ Opción Incorrecta, inténtalo nuevamente 😄"}]}
+            //return {status:"Msg",data:"Opción no valida"}
     }    
     if(conv.data.conv_confirm==false){
         if(conv.data.conv_princ_menu_opc==1 || conv.data.conv_princ_menu_opc==5){
             if(lowmsg=="si" || lowmsg=="no"){
                 if(lowmsg=="no"){
                     await modifyUserbyCell(null,null,null,null,null,null,user.data.usu_term_acept,null,user.data.usu_celular,user.data.usu_emp_id)
-                    await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,null,null,null,null,null,null,true,null,null)
+                    await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,null,null,null,null,null,null,true,null,null,null)
                     return {status:"200",message:"Ok",data:[{code:1,text:"Por favor ingrese el nombre de la ciudad en la que se encuentra"}]}
                 }else{                    
                     await confirmConversation(conv.data.conv_id)
@@ -1311,7 +1319,7 @@ async function navFlow(cell_number,comp_cell_number,msg){
                 }
             }else{
                 let confirm="Por favor confirma tus datos:\n"
-                confirm+=user.data.usu_opcion_identificador?"Tipo de Identificacion: Cedula identidad\n":"Tipo de Identificacion: Cedula de Extranjeria o Pasaporte\n"
+                confirm+=user.data.usu_opcion_identificador?"Tipo de Identificación: Cédula identidad\n":"Tipo de Identificación: Cédula de Extranjería o Pasaporte\n"
                 confirm+="Identificacion: "+user.data.usu_identificador+"\n"
                 confirm+="Nombre: "+user.data.usu_nombre+"\n"
 
@@ -1345,17 +1353,17 @@ async function navFlow(cell_number,comp_cell_number,msg){
                     let optionName=consult.filter((object)=>object.lsp_codigo==9)
                     optionName=optionName.map((object)=>object.options)                    
                     let nombre =optionName[0].filter((object)=>object.id==conv.data.conv_tiempo_compra)
-                    confirm+="Opcion de compra: "+nombre[0].name+"\n"
+                    confirm+="Opción de compra: "+nombre[0].name+"\n"
                 }
     
                 confirm+="Son correctos Si o No"
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=false
                 //return {status:"Msg",data:confirm}
                 return {status:"200",message:"Ok",data:[{code:1,text:confirm}]}                           
             }
         }else{
-            await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+            await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
             conv.data.conv_mutable=false
             await confirmConversation(conv.data.conv_id)
             if(conv.data.conv_princ_menu_opc==2 || conv.data.conv_princ_menu_opc==4){
@@ -1368,8 +1376,8 @@ async function navFlow(cell_number,comp_cell_number,msg){
             await finishConversation(conv.data.conv_id)            
             await createConversation(user.data.usu_id)
             if(msg==1){
-                return {status:"200",message:"Ok",data:[{code:1,text:"En que te podemos ayudar?\n1. Me interesa una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Accesorios/Power Wear\n 5. Asesor en linea\n Ingrese una opcion de las anteriores"}]}
-                //return {status:"Msg",data:"En que te podemos ayudar?\n1. Me interesa una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Accesorios/Power Wear\n 5. Asesor en linea\n Ingrese una opcion de las anteriores"}
+                return {status:"200",message:"Ok",data:[{code:1,text:"En que té podemos ayudar?\n1. Me interesa una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Accesorios/Power Wear\n 5. Asesor en linea\n Ingrese una Opción de las anteriores"}]}
+                //return {status:"Msg",data:"En que te podemos ayudar?\n1. Me interesa una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Accesorios/Power Wear\n 5. Asesor en linea\n Ingrese una Opción de las anteriores"}
             }else{
                 return {status:"200",message:"Ok",data:[{code:1,text:"Muchas Gracias por preferirnos"}]}
                 //return {status:"Msg",data:"Muchas Gracias por preferirnos"}
@@ -1391,11 +1399,12 @@ async function navFlow(cell_number,comp_cell_number,msg){
 async function navFlowKws(cell_number,comp_cell_number,msg){ 
     let DBresult=await connectDB()    
     if(DBresult.status=="Error"){
-        return {status:"Error",data:result.data}
+        return {status:"Error",data:DBresult.data}
     }
     let menu,sel_menu,token,result,user,conv,lowmsg
     let listH=""
     let emp = await consultCompanybynumber(comp_cell_number)
+    APIurl=emp.data.emp_url_consulta
     token= await getToken()
     lowmsg=msg.toString().toLowerCase().trim()
     user=await consultUserbyCellphone(cell_number,emp.data.emp_id)
@@ -1412,7 +1421,7 @@ async function navFlowKws(cell_number,comp_cell_number,msg){
         if(lowmsg=="si"){
             await modifyUserbyCell(user.data.usu_apellido,user.data.usu_ciudad,user.data.usu_correo,user.data.usu_identificador,user.data.usu_nombre,user.data.usu_opcion_identificador,true,user.data.usu_estado_civil,user.data.usu_celular,user.data.usu_emp_id)
         }else{
-            return {status:"200",message:"Ok",data:[{code:1,text:"Permitenos la autorizacion, sino no podremos comunicarnos.Escribe si para aceptar"}]}
+            return {status:"200",message:"Ok",data:[{code:1,text:"Permitenos la autorización, sino no podremos comunicarnos.Escribe si para aceptar"}]}
             //return {status:"Msg",data:"Permitenos la autorizacion, sino no podremos comunicarnos.Escribe si para aceptar "}
         }
     }    
@@ -1434,14 +1443,14 @@ async function navFlowKws(cell_number,comp_cell_number,msg){
         }
     }    
     if(conv.data.conv_princ_menu_opc==null){
-        if(regexNumber.test(msg) && msg>0 && msg<6){
+        if(regexNumber.test(msg) && msg>0 && msg<4){
             sel_menu=await modifyConversationbyID(conv.data.conv_id,msg,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)            
             menu=sel_menu.status=="OK"?Number(msg):null
             conv.data.conv_princ_menu_opc=sel_menu.status=="OK"?msg:null
         }else{            
             await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
-            return {status:"200",message:"Ok",data:[{code:1,text:"En que te podemos ayudar?\n1. Deseo adquirir una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Asesor en linea\n Ingrese una opcion de las anteriores"}]}
-            // return {status:"Msg",data:"En que te podemos ayudar?\n1. Me interesa una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Accesorios/Power Wear\n 5. Asesor en linea\n Ingrese una opcion de las anteriores"}    
+            return {status:"200",message:"Ok",data:[{code:1,text:"En qué te podemos ayudar?\n1. Deseo adquirir una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n Ingrese una opción de las anteriores"}]}
+            // return {status:"Msg",data:"En que te podemos ayudar?\n1. Me interesa una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Accesorios/Power Wear\n 5. Asesor en linea\n Ingrese una Opción de las anteriores"}    
         }
     }
     if(menu==undefined){
@@ -1513,6 +1522,7 @@ async function navFlowKws(cell_number,comp_cell_number,msg){
                     return {status:"200",message:"Ok",data:[{code:1,text:"Lo sentimos no tenemos en existencia motos en esta categoria"},{code:2,text:confirm.data}]}
                     // return {status:confirm.status,data:"Lo sentimos no tenemos en existencia motos en esta categoria "+confirm.data}                
             }
+
             confirm = await validTimeBuy(conv,msg,token)            
             if(confirm!=undefined && (confirm.status=="Erorr" || confirm.status=="Msg"))
                 return {status:"200",message:"Ok",data:[{code:1,text:confirm.data}]}
@@ -1636,8 +1646,8 @@ async function navFlowKws(cell_number,comp_cell_number,msg){
         break;
         default:
             await modifyConversationbyID(conv.data.conv_id,msg,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,true,conv.data.conv_tiempo_compra,conv.data.conv_celular)
-            return {status:"200",message:"Ok",data:[{code:1,text:"opcion no valida"}]}
-            //return {status:"Msg",data:"Opcion no valida"}
+            return {status:"200",message:"Ok",data:[{code:1,text:"Opción no valida"}]}
+            //return {status:"Msg",data:"Opción no valida"}
     }    
     if(conv.data.conv_confirm==false){
         if(conv.data.conv_princ_menu_opc==1 || conv.data.conv_princ_menu_opc==5){
@@ -1655,7 +1665,7 @@ async function navFlowKws(cell_number,comp_cell_number,msg){
                 }
             }else{
                 let confirm="Por favor confirma tus datos:\n"
-                confirm+=user.data.usu_opcion_identificador?"Tipo de Identificacion: Cedula identidad\n":"Tipo de Identificacion: Cedula de Extranjeria o Pasaporte\n"
+                confirm+=user.data.usu_opcion_identificador?"Tipo de Identificacion: Cédula identidad\n":"Tipo de Identificacion: Cédula de Extranjeria o Pasaporte\n"
                 confirm+="Identificacion: "+user.data.usu_identificador+"\n"
                 confirm+="Nombre: "+user.data.usu_nombre+"\n"
 
@@ -1689,17 +1699,17 @@ async function navFlowKws(cell_number,comp_cell_number,msg){
                     let optionName=consult.filter((object)=>object.lsp_codigo==9)
                     optionName=optionName.map((object)=>object.options)                    
                     let nombre =optionName[0].filter((object)=>object.id==conv.data.conv_tiempo_compra)
-                    confirm+="Opcion de compra: "+nombre[0].name+"\n"
+                    confirm+="Opción de compra: "+nombre[0].name+"\n"
                 }
     
                 confirm+="Son correctos Si o No"
-                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+                await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
                 conv.data.conv_mutable=false
                 //return {status:"Msg",data:confirm}
                 return {status:"200",message:"Ok",data:[{code:1,text:confirm}]}                           
             }
         }else{
-            await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_celular)
+            await modifyConversationbyID(conv.data.conv_id,conv.data.conv_princ_menu_opc,conv.data.conv_sucursal,conv.data.conv_moto,conv.data.conv_tipo_repuesto,conv.data.conv_moto_anio,conv.data.conv_tipo_moto,conv.data.conv_ciudad,false,conv.data.conv_tiempo_compra,conv.data.conv_metodo_pago,conv.data.conv_celular)
             conv.data.conv_mutable=false
             await confirmConversation(conv.data.conv_id)
             if(conv.data.conv_princ_menu_opc==2 || conv.data.conv_princ_menu_opc==4){
@@ -1712,8 +1722,8 @@ async function navFlowKws(cell_number,comp_cell_number,msg){
             await finishConversation(conv.data.conv_id)            
             await createConversation(user.data.usu_id)
             if(msg==1){
-                return {status:"200",message:"Ok",data:[{code:1,text:"En que te podemos ayudar?\n1. Me interesa una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Accesorios/Power Wear\n 5. Asesor en linea\n Ingrese una opcion de las anteriores"}]}
-                //return {status:"Msg",data:"En que te podemos ayudar?\n1. Me interesa una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Accesorios/Power Wear\n 5. Asesor en linea\n Ingrese una opcion de las anteriores"}
+                return {status:"200",message:"Ok",data:[{code:1,text:"En qué te podemos ayudar?\n1. Deseo adquirir una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n Ingrese una opción de las anteriores"}]}
+                //return {status:"Msg",data:"En que te podemos ayudar?\n1. Me interesa una moto\n2. Necesito Repuestos\n3. Tiendas y Horarios\n4. Accesorios/Power Wear\n 5. Asesor en linea\n Ingrese una Opción de las anteriores"}
             }else{
                 return {status:"200",message:"Ok",data:[{code:1,text:"Muchas Gracias por preferirnos"}]}
                 //return {status:"Msg",data:"Muchas Gracias por preferirnos"}
@@ -1741,8 +1751,8 @@ app.post('/getWhtspMsg', async (req, res) => {
             let message=jsonData.message
             let number=jsonData.number
             let compNumber=jsonData.compNumber     
-            let result       
-            if(compNumber=="0968027506"){
+            let result
+            if(compNumber=="593968027506"){
                 result= await navFlow(number,compNumber,message)
             }else{
                 result= await navFlowKws(number,compNumber,message)
